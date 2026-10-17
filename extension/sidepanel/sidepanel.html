@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ghost Hands - Side Panel</title>
+    <style>
+      :root {
+        --primary: #2563eb;
+        --primary-hover: #1d4ed8;
+        --primary-light: #eff6ff;
+        --danger: #dc2626;
+        --danger-hover: #b91c1c;
+        --danger-light: #fef2f2;
+        --success: #16a34a;
+        --success-light: #f0fdf4;
+        --warning: #d97706;
+        --warning-light: #fffbeb;
+        --bg: #f8fafc;
+        --card: #ffffff;
+        --text: #0f172a;
+        --text-muted: #64748b;
+        --border: #e2e8f0;
+        --radius: 12px;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      }
+
+      body {
+        background: var(--bg);
+        color: var(--text);
+        padding: 16px;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .sp-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .sp-brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .sp-brand-icon {
+        font-size: 26px;
+      }
+
+      .sp-brand-title {
+        font-size: 17px;
+        font-weight: 800;
+        color: var(--primary);
+      }
+
+      .sp-status-badge {
+        font-size: 11px;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 9999px;
+        background: #e2e8f0;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .sp-status-badge.active {
+        background: #dcfce7;
+        color: #15803d;
+      }
+
+      .sp-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 14px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      }
+
+      .sp-card-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      textarea {
+        width: 100%;
+        height: 64px;
+        padding: 10px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font-size: 13px;
+        color: var(--text);
+        resize: none;
+        outline: none;
+      }
+
+      textarea:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+      }
+
+      .sp-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        width: 100%;
+        padding: 10px 14px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        border: none;
+        transition: all 0.15s ease;
+      }
+
+      .sp-btn-primary {
+        background: var(--primary);
+        color: #ffffff;
+      }
+
+      .sp-btn-primary:hover {
+        background: var(--primary-hover);
+      }
+
+      .sp-btn-secondary {
+        background: #f1f5f9;
+        color: #334155;
+        border: 1px solid var(--border);
+      }
+
+      .sp-btn-secondary:hover {
+        background: #e2e8f0;
+      }
+
+      .sp-btn-danger {
+        background: var(--danger-light);
+        color: var(--danger);
+        border: 1px solid #fca5a5;
+      }
+
+      .sp-btn-danger:hover {
+        background: var(--danger);
+        color: #ffffff;
+      }
+
+      /* Progress Bar */
+      .progress-container {
+        margin-top: 8px;
+        margin-bottom: 12px;
+      }
+
+      .progress-bar {
+        height: 8px;
+        background: #e2e8f0;
+        border-radius: 9999px;
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        height: 100%;
+        width: 0%;
+        background: var(--primary);
+        transition: width 0.3s ease;
+      }
+
+      /* Stepper List */
+      .step-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 8px;
+        max-height: 280px;
+        overflow-y: auto;
+      }
+
+      .step-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: #f8fafc;
+        transition: all 0.15s ease;
+        cursor: pointer;
+      }
+
+      .step-item:hover {
+        border-color: #cbd5e1;
+      }
+
+      .step-item.active {
+        background: var(--primary-light);
+        border-color: var(--primary);
+      }
+
+      .step-item.completed {
+        background: var(--success-light);
+        border-color: #86efac;
+      }
+
+      .step-icon {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 700;
+        background: #e2e8f0;
+        color: var(--text-muted);
+        flex-shrink: 0;
+      }
+
+      .step-item.active .step-icon {
+        background: var(--primary);
+        color: white;
+      }
+
+      .step-item.completed .step-icon {
+        background: var(--success);
+        color: white;
+      }
+
+      .step-content {
+        flex: 1;
+      }
+
+      .step-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text);
+        line-height: 1.3;
+      }
+
+      .step-target {
+        font-size: 11px;
+        color: var(--text-muted);
+        margin-top: 2px;
+      }
+
+      .step-badge {
+        font-size: 10px;
+        font-weight: 700;
+        padding: 2px 6px;
+        border-radius: 4px;
+        margin-left: 6px;
+      }
+
+      .step-badge.sensitive {
+        background: #fee2e2;
+        color: #b91c1c;
+      }
+
+      .step-badge.a11y {
+        background: #fffbeb;
+        color: #b45309;
+      }
+
+      /* Navigation row */
+      .nav-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      /* Toggle switch */
+      .toggle-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .toggle-info {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .toggle-title {
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      .toggle-subtitle {
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+
+      .switch {
+        position: relative;
+        display: inline-block;
+        width: 38px;
+        height: 22px;
+      }
+
+      .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+
+      .slider {
+        position: absolute;
+        cursor: pointer;
+        inset: 0;
+        background-color: #cbd5e1;
+        transition: 0.2s;
+        border-radius: 22px;
+      }
+
+      .slider:before {
+        position: absolute;
+        content: "";
+        height: 16px;
+        width: 16px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        transition: 0.2s;
+        border-radius: 50%;
+      }
+
+      input:checked + .slider {
+        background-color: var(--primary);
+      }
+
+      input:checked + .slider:before {
+        transform: translateX(16px);
+      }
+
+      /* Accessibility Signals Box */
+      .a11y-score-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+      }
+
+      .a11y-pill {
+        font-size: 12px;
+        font-weight: 700;
+        padding: 3px 8px;
+        border-radius: 6px;
+        background: #dcfce7;
+        color: #15803d;
+      }
+
+      /* Collapsible Inspector */
+      .inspector-content {
+        display: none;
+        margin-top: 8px;
+        max-height: 220px;
+        overflow-y: auto;
+        font-family: monospace;
+        font-size: 11px;
+        background: #0f172a;
+        color: #38bdf8;
+        padding: 10px;
+        border-radius: 6px;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+
+      .inspector-content.visible {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="sp-header">
+      <div class="sp-brand">
+        <span class="sp-brand-icon">🖐️</span>
+        <div>
+          <div class="sp-brand-title">Ghost Hands</div>
+        </div>
+      </div>
+      <div id="sp-status" class="sp-status-badge">Ready</div>
+    </div>
+
+    <!-- Start / Intent Section -->
+    <div class="sp-card" id="sp-intent-card">
+      <div class="sp-card-title">What is your goal?</div>
+      <textarea id="sp-intent-input" placeholder="e.g. Register for courses, submit application, fill form..."></textarea>
+      <button id="sp-start-btn" class="sp-btn sp-btn-primary" style="margin-top: 8px;">
+        <span>🖐️ Start Guided Steps</span>
+      </button>
+    </div>
+
+    <!-- Active Guidance Progress & Steps -->
+    <div class="sp-card" id="sp-guidance-card" style="display: none;">
+      <div class="sp-card-title">
+        <span>Step Progress</span>
+        <span id="sp-step-count" style="font-size: 11px; color: var(--primary);">0 of 0</span>
+      </div>
+
+      <div class="progress-container">
+        <div class="progress-bar">
+          <div id="sp-progress-fill" class="progress-fill"></div>
+        </div>
+      </div>
+
+      <div class="step-list" id="sp-step-list">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <div class="nav-row">
+        <button id="sp-prev-btn" class="sp-btn sp-btn-secondary">← Previous</button>
+        <button id="sp-next-btn" class="sp-btn sp-btn-primary">Next / Skip →</button>
+      </div>
+
+      <button id="sp-stop-btn" class="sp-btn sp-btn-danger" style="margin-top: 8px;">
+        <span>🛑 Emergency Stop</span>
+      </button>
+    </div>
+
+    <!-- Accessibility Signals (axe-core Integration) -->
+    <div class="sp-card">
+      <div class="a11y-score-row">
+        <span style="font-size: 13px; font-weight: 700;">♿ Page Accessibility (axe-core)</span>
+        <span id="sp-a11y-score" class="a11y-pill">Evaluating...</span>
+      </div>
+      <div class="toggle-row" style="margin-top: 8px;">
+        <div class="toggle-info">
+          <span class="toggle-title">🎯 Large Target Mode</span>
+          <span class="toggle-subtitle">Oversized targets for motor assistance</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="sp-large-target-toggle" />
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Browser-Use & Stagehand Sanitized Page Map Inspector -->
+    <div class="sp-card">
+      <div class="sp-card-title">
+        <span>Sanitized Page Map</span>
+        <button id="sp-inspect-btn" class="sp-btn sp-btn-secondary" style="width: auto; padding: 4px 8px; font-size: 11px;">
+          Inspect DOM
+        </button>
+      </div>
+      <div id="sp-inspector" class="inspector-content">Click "Inspect DOM" to view sanitized snapshot extracted by Person A.</div>
+    </div>
+
+    <script src="sidepanel.js"></script>
+  </body>
+</html>
