@@ -5,6 +5,9 @@
  *  - Stagehand: act(), observe(), extract() primitives for deterministic guidance
  *  - axe-core: Accessibility rule engine (touch target sizing, form labels, WCAG compliance)
  *  - AgentQL: Semantic role and element classification
+ *  - Target Field IDs: full-name, university-email, student-id, current-year, degree-programme,
+ *    scholarship-category, academic-achievements, personal-statement, academic-transcript,
+ *    supporting-document, declaration, submit-button, reset-button
  */
 
 (function () {
@@ -14,6 +17,23 @@
   let isLargeTargetMode = false;
   let elementRefCache = new Map();
   let currentCompletionCleanup = null;
+
+  // Known target field IDs provided for the application
+  const KNOWN_FIELD_IDS = [
+    "full-name",
+    "university-email",
+    "student-id",
+    "current-year",
+    "degree-programme",
+    "scholarship-category",
+    "academic-achievements",
+    "personal-statement",
+    "academic-transcript",
+    "supporting-document",
+    "declaration",
+    "submit-button",
+    "reset-button"
+  ];
 
   // Sensitive keywords for privacy redaction
   const SENSITIVE_KEYWORDS = [
@@ -28,7 +48,6 @@
    */
   const AxeRules = {
     checkTargetSize(element, rect) {
-      // WCAG 2.5.5 (AAA): 44x44px target size, WCAG 2.5.8 (AA): 24x24px
       const minAccessibleSize = 44;
       if (rect.width < minAccessibleSize || rect.height < minAccessibleSize) {
         return {
@@ -144,14 +163,19 @@
    * AgentQL-Style Semantic Element Classification
    */
   function classifySemanticType(element, isSensitive, accessibleName) {
-    const text = (accessibleName + " " + (element.name || "") + " " + (element.id || "")).toLowerCase();
+    const id = (element.id || "").toLowerCase();
+    const text = (accessibleName + " " + (element.name || "") + " " + id).toLowerCase();
+
     if (isSensitive) return "sensitive_credential";
-    if (element.type === "submit" || text.includes("submit") || text.includes("confirm") || text.includes("register") || text.includes("continue")) return "submit_action";
-    if (element.type === "email" || text.includes("email")) return "email_input";
-    if (text.includes("name") && !text.includes("user")) return "name_input";
-    if (element.type === "search" || text.includes("search")) return "search_input";
+    if (id === "submit-button" || element.type === "submit" || text.includes("submit") || text.includes("confirm")) return "submit_action";
+    if (id === "reset-button" || element.type === "reset" || text.includes("reset")) return "reset_action";
+    if (id === "declaration" || element.type === "checkbox") return "declaration_checkbox";
+    if (id.includes("transcript") || id.includes("document") || element.type === "file") return "file_upload";
+    if (id === "university-email" || element.type === "email" || text.includes("email")) return "email_input";
+    if (id === "full-name" || text.includes("full name")) return "name_input";
+    if (id === "student-id" || text.includes("student id") || text.includes("roll")) return "student_id_input";
     if (element.tagName === "SELECT") return "select_dropdown";
-    if (element.type === "checkbox") return "checkbox_toggle";
+    if (element.tagName === "TEXTAREA") return "textarea_input";
     if (element.type === "radio") return "radio_option";
     if (element.tagName === "BUTTON" || element.getAttribute("role") === "button") return "button_action";
     if (element.tagName === "A") return "navigation_link";
@@ -194,7 +218,14 @@
     const visibleLabel = getAssociatedLabelText(element).slice(0, 100);
     const ref = `el_${index}`;
 
+    // Cache by ref index
     elementRefCache.set(ref, element);
+
+    // Also cache directly by ID so Person B can target by element ID (e.g. "full-name")
+    if (element.id) {
+      elementRefCache.set(element.id, element);
+      elementRefCache.set(`#${element.id}`, element);
+    }
 
     // Run axe-core accessibility checks
     const a11yIssues = [];
@@ -217,9 +248,13 @@
     );
 
     const semanticType = classifySemanticType(element, isSensitive, accessibleName);
+    const isKnownTarget = Boolean(element.id && KNOWN_FIELD_IDS.includes(element.id));
 
     return {
       ref,
+      id: element.id || "",
+      field_id: element.id || "",
+      is_known_target: isKnownTarget,
       highlight_index: index,
       tag: element.tagName.toLowerCase(),
       role: element.getAttribute("role") || element.tagName.toLowerCase(),
@@ -239,7 +274,7 @@
         height: Math.round(rect.height)
       },
       a11y_issues: a11yIssues,
-      needs_large_target: a11yIssues.some(i => i.needs_large_target),
+      needs_large_target: a11yIssues.some(i => i.needs_large_target) || (element.type === "checkbox" || element.type === "radio"),
       selector: generateSelector(element)
     };
   }
@@ -247,6 +282,12 @@
   function extractPageSnapshot() {
     elementRefCache.clear();
 
+    // Priority 1: Check if known field IDs exist in DOM
+    const knownElements = KNOWN_FIELD_IDS
+      .map(id => document.getElementById(id))
+      .filter(Boolean);
+
+    // Standard interactive selector
     const selector = [
       "input:not([type='hidden'])",
       "textarea",
@@ -261,7 +302,7 @@
       "[tabindex]:not([tabindex='-1'])"
     ].join(",");
 
-    const elements = [...document.querySelectorAll(selector)].filter(element => {
+    const allInteractive = [...document.querySelectorAll(selector)].filter(element => {
       if (element.closest("#ghost-hands-overlay-host")) return false;
       const rect = element.getBoundingClientRect();
       const style = window.getComputedStyle(element);
@@ -274,6 +315,10 @@
       );
     });
 
+    // Merge ensuring unique elements in order
+    const elementSet = new Set([...knownElements, ...allInteractive]);
+    const elements = [...elementSet];
+
     const mappedElements = elements.map(mapElement);
     const totalA11yIssues = mappedElements.reduce((acc, el) => acc + el.a11y_issues.length, 0);
     const a11yScore = Math.max(20, 100 - (totalA11yIssues * 8));
@@ -283,26 +328,58 @@
       url: window.location.href,
       accessibility_score: a11yScore,
       total_interactive_elements: mappedElements.length,
+      known_targets_found: mappedElements.filter(e => e.is_known_target).map(e => e.id),
       elements: mappedElements
     };
   }
 
+  /**
+   * Resilient Element Lookup: supports ID, #ID, ref, selector, and name
+   */
   function findElementByRef(ref) {
+    if (!ref) return null;
+
+    // 1. Direct getElementById lookup
+    const cleanId = ref.startsWith("#") ? ref.slice(1) : ref;
+    const byId = document.getElementById(cleanId);
+    if (byId && document.body.contains(byId)) {
+      return byId;
+    }
+
+    // 2. Direct cache lookup (contains ref, cleanId, and #cleanId)
     if (elementRefCache.has(ref)) {
       const cached = elementRefCache.get(ref);
-      if (document.body.contains(cached)) {
-        return cached;
+      if (document.body.contains(cached)) return cached;
+    }
+    if (elementRefCache.has(cleanId)) {
+      const cached = elementRefCache.get(cleanId);
+      if (document.body.contains(cached)) return cached;
+    }
+
+    // 3. Name attribute match
+    const byName = document.querySelector(`[name="${CSS.escape(cleanId)}"]`);
+    if (byName) return byName;
+
+    // 4. Selector match
+    try {
+      const byQuery = document.querySelector(ref);
+      if (byQuery) return byQuery;
+    } catch (e) {}
+
+    // 5. Index-based match (el_0, el_1...)
+    if (ref.startsWith("el_")) {
+      const index = Number(ref.replace("el_", ""));
+      extractPageSnapshot();
+      if (elementRefCache.has(ref)) {
+        return elementRefCache.get(ref);
       }
+      const all = [...elementRefCache.values()];
+      return all[index] || null;
     }
 
-    const index = Number(ref.replace("el_", ""));
+    // 6. Refresh snapshot and retry
     extractPageSnapshot();
-    if (elementRefCache.has(ref)) {
-      return elementRefCache.get(ref);
-    }
-
-    const all = [...elementRefCache.values()];
-    return all[index] || null;
+    return document.getElementById(cleanId) || elementRefCache.get(ref) || null;
   }
 
   /**
@@ -313,6 +390,7 @@
       const snapshot = extractPageSnapshot();
       return snapshot.elements.map(el => ({
         ref: el.ref,
+        id: el.id,
         selector: el.selector,
         suggested_action: el.tag === "button" || el.role === "button" || el.tag === "a" ? "click" : (el.tag === "select" ? "select" : "fill"),
         semantic_type: el.semantic_type,
@@ -364,9 +442,8 @@
       currentCompletionCleanup = null;
     }
 
-    const target = findElementByRef(step.target_ref);
+    const target = findElementByRef(step.target_ref || step.field_id || step.id);
 
-    // Auto-enable Large Target Mode if element has small touch target or requested
     const stepNeedsLargeTarget = isLargeTargetMode || step.needs_large_target || (step.alternatives && step.alternatives.includes("large_target"));
 
     if (window.GhostOverlay) {
@@ -416,8 +493,10 @@
       if (type === "checkbox" || type === "radio") {
         addTrackedListener(target, "change", triggerCompletion);
         addTrackedListener(target, "click", triggerCompletion);
-      } else if (type === "submit" || type === "button") {
+      } else if (type === "submit" || type === "button" || type === "reset") {
         addTrackedListener(target, "click", triggerCompletion);
+      } else if (type === "file") {
+        addTrackedListener(target, "change", triggerCompletion);
       } else {
         let debounceTimer = null;
         const handleInput = () => {
@@ -462,7 +541,7 @@
       type: "STEP_COMPLETED",
       sessionId: currentSession,
       stepId: step.step_id,
-      targetRef: step.target_ref
+      targetRef: step.target_ref || step.field_id || step.id
     });
 
     setTimeout(() => {
@@ -661,7 +740,6 @@
     return true;
   });
 
-  // Global APIs for external extensions / testing
   window.GhostContentScript = {
     extractPageSnapshot,
     findElementByRef,
